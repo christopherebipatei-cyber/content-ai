@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>content.ai — your brand voice, amplified</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --black: #0d0d0d;
+    --off-black: #111;
+    --card: #0f0f0f;
+    --border: #1a1a1a;
+    --border-light: #2a2a2a;
+    --gold: #f59e0b;
+    --red: #ef4444;
+    --yellow: #fde047;
+    --white: #ffffff;
+    --muted: #555;
+    --dim: #333;
+    --fire: linear-gradient(90deg, #ef4444, #f59e0b, #fde047);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: 'Lato', sans-serif;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Noise texture overlay ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: 0.4;
+  }
+
+  /* ── Nav ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: 18px 40px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(13,13,13,0.85); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px; font-weight: 900; color: var(--white);
+    letter-spacing: -0.5px;
+  }
+  .nav-logo span { color: var(--gold); }
+
+  .nav-links { display: flex; align-items: center; gap: 28px; }
+  .nav-links a {
+    font-size: 13px; color: var(--muted); text-decoration: none;
+    font-weight: 400; transition: color 0.2s; letter-spacing: 0.3px;
+  }
+  .nav-links a:hover { color: var(--white); }
+
+  .btn-nav {
+    background: var(--gold); border: none; border-radius: 8px;
+    padding: 9px 18px; color: var(--black); font-size: 13px;
+    font-weight: 700; font-family: 'Lato', sans-serif;
+    cursor: pointer; transition: opacity 0.2s; letter-spacing: 0.3px;
+    text-decoration: none;
+  }
+  .btn-nav:hover { opacity: 0.88; }
+
+  /* ── Fire bar ── */
+  .fire-bar {
+    height: 3px; background: var(--fire);
+    position: absolute; top: 0; left: 0; right: 0;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    min-height: 100vh; display: flex; align-items: center;
+    justify-content: center; padding: 120px 24px 80px;
+    position: relative; text-align: center;
+  }
+
+  .hero-inner { max-width: 720px; }
+
+  .hero-tag {
+    display: inline-block;
+    font-size: 10px; color: var(--gold); letter-spacing: 3px;
+    text-transform: uppercase; margin-bottom: 24px;
+    border: 1px solid #f59e0b33; border-radius: 20px;
+    padding: 6px 16px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .hero-headline {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(42px, 7vw, 80px);
+    font-weight: 900; line-height: 1.05;
+    letter-spacing: -2px; margin-bottom: 24px;
+    animation: fadeUp 0.7s 0.1s ease both;
+  }
+
+  .hero-headline em {
+    font-style: italic; color: var(--gold);
+    display: block;
+  }
+
+  .hero-sub {
+    font-size: 16px; color: var(--muted); line-height: 1.75;
+    max-width: 480px; margin: 0 auto 40px;
+    font-weight: 300;
+    animation: fadeUp 0.7s 0.2s ease both;
+  }
+
+  .hero-ctas {
+    display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+    animation: fadeUp 0.7s 0.3s ease both;
+  }
+
+  .btn-primary {
+    background: var(--gold); border: none; border-radius: 12px;
+    padding: 15px 32px; color: var(--black); font-size: 15px;
+    font-weight: 700; font-family: 'Lato', sans-serif;
+    cursor: pointer; transition: all 0.2s; letter-spacing: 0.3px;
+    text-decoration: none; display: inline-block;
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 28px #f59e0b44; }
+
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border-light);
+    border-radius: 12px; padding: 15px 28px; color: var(--muted);
+    font-size: 15px; font-weight: 400; font-family: 'Lato', sans-serif;
+    cursor: pointer; transition: all 0.2s; text-decoration: none; display: inline-block;
+  }
+  .btn-ghost:hover { border-color: var(--muted); color: var(--white); }
+
+  .hero-note {
+    margin-top: 18px; font-size: 11px; color: var(--dim);
+    animation: fadeUp 0.7s 0.4s ease both;
+  }
+
+  /* ── Glow ── */
+  .glow {
+    position: absolute; width: 600px; height: 600px; border-radius: 50%;
+    background: radial-gradient(circle, #f59e0b0a 0%, transparent 70%);
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  /* ── Pillars strip ── */
+  .pillars-strip {
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 0; overflow: hidden;
+    position: relative;
+  }
+
+  .pillars-track {
+    display: flex; gap: 48px; animation: scroll 18s linear infinite;
+    width: max-content;
+  }
+
+  .pillar-item {
+    display: flex; align-items: center; gap: 10px;
+    white-space: nowrap; font-size: 12px; color: var(--dim);
+    text-transform: uppercase; letter-spacing: 2px;
+  }
+
+  .pillar-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  @keyframes scroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  /* ── Section ── */
+  section { padding: 96px 24px; position: relative; }
+
+  .section-tag {
+    font-size: 10px; color: var(--gold); letter-spacing: 3px;
+    text-transform: uppercase; margin-bottom: 16px; display: block;
+  }
+
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(28px, 4vw, 48px);
+    font-weight: 900; line-height: 1.15;
+    letter-spacing: -1px; margin-bottom: 16px;
+  }
+
+  .section-sub {
+    font-size: 15px; color: var(--muted); line-height: 1.75;
+    font-weight: 300; max-width: 480px;
+  }
+
+  .container { max-width: 1080px; margin: 0 auto; }
+
+  /* ── How it works ── */
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2px; margin-top: 60px; }
+
+  .step {
+    background: var(--card); border: 1px solid var(--border);
+    padding: 32px 28px; position: relative; overflow: hidden;
+    transition: border-color 0.3s;
+  }
+  .step:hover { border-color: #f59e0b33; }
+  .step:first-child { border-radius: 16px 0 0 16px; }
+  .step:last-child { border-radius: 0 16px 16px 0; }
+
+  .step-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 48px; font-weight: 900; color: #1a1a1a;
+    line-height: 1; margin-bottom: 20px;
+  }
+
+  .step-title {
+    font-size: 15px; font-weight: 700; margin-bottom: 10px; color: var(--white);
+  }
+
+  .step-desc { font-size: 13px; color: var(--muted); line-height: 1.7; }
+
+  .step-accent {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 2px; background: var(--fire);
+    transform: scaleX(0); transform-origin: left;
+    transition: transform 0.4s ease;
+  }
+  .step:hover .step-accent { transform: scaleX(1); }
+
+  /* ── Features grid ── */
+  .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 56px; }
+
+  .feature-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 28px;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+  .feature-card:hover { border-color: #f59e0b22; transform: translateY(-3px); }
+
+  .feature-icon {
+    font-size: 22px; margin-bottom: 16px; display: block;
+  }
+
+  .feature-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+  .feature-desc { font-size: 13px; color: var(--muted); line-height: 1.7; }
+
+  /* ── Quote card preview ── */
+  .preview-wrap {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
+    align-items: center; margin-top: 60px;
+  }
+
+  @media (max-width: 680px) {
+    .preview-wrap { grid-template-columns: 1fr; }
+  }
+
+  .mock-card {
+    background: #0d0d0d; border-radius: 16px; overflow: hidden;
+    border: 1px solid var(--border-light);
+    box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+    aspect-ratio: 1/1; display: flex; flex-direction: column;
+  }
+
+  .mock-bar { height: 4px; background: var(--fire); }
+
+  .mock-body { flex: 1; padding: 28px; display: flex; flex-direction: column; justify-content: space-between; }
+
+  .mock-tag {
+    font-size: 9px; color: var(--gold); text-transform: uppercase;
+    letter-spacing: 2.5px; font-weight: 700;
+  }
+
+  .mock-quote {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px; font-weight: 900; line-height: 1.35; color: var(--white);
+  }
+
+  .mock-sub {
+    border-left: 2px solid #2a2a2a; padding-left: 12px;
+    font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;
+    font-weight: 300;
+  }
+
+  .mock-wm {
+    padding: 0 28px 16px; text-align: right;
+    font-size: 9px; color: #1e1e1e; letter-spacing: 1px;
+  }
+
+  .preview-copy .section-sub { margin-bottom: 28px; }
+
+  .output-tabs {
+    display: flex; gap: 2px; background: #111;
+    border-radius: 9px; padding: 3px; border: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+
+  .output-tab {
+    flex: 1; padding: 8px 0; text-align: center;
+    font-size: 11px; color: var(--muted); border-radius: 6px;
+    cursor: default;
+  }
+  .output-tab.active {
+    background: #1e1e1e; color: var(--gold); font-weight: 700;
+  }
+
+  .output-box {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px;
+    font-size: 13px; color: #aaa; line-height: 1.8;
+  }
+
+  /* ── Pricing ── */
+  .pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 640px; margin: 56px auto 0; }
+
+  @media (max-width: 580px) {
+    .pricing-grid { grid-template-columns: 1fr; }
+  }
+
+  .pricing-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 20px; padding: 32px; text-align: center;
+    position: relative; transition: border-color 0.3s;
+  }
+  .pricing-card.featured {
+    border-color: #f59e0b44;
+    background: linear-gradient(160deg, #0f0f0f 0%, #111008 100%);
+  }
+
+  .pricing-badge {
+    position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+    background: var(--gold); color: var(--black); font-size: 10px;
+    font-weight: 700; padding: 4px 12px; border-radius: 20px;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+
+  .pricing-tier { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 16px; }
+
+  .pricing-price {
+    font-family: 'Playfair Display', serif;
+    font-size: 44px; font-weight: 900; margin-bottom: 4px;
+  }
+
+  .pricing-period { font-size: 12px; color: var(--muted); margin-bottom: 24px; }
+
+  .pricing-features { list-style: none; text-align: left; margin-bottom: 28px; display: flex; flex-direction: column; gap: 10px; }
+
+  .pricing-features li {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: #aaa;
+  }
+
+  .check {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #f59e0b22; border: 1px solid #f59e0b44;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; color: var(--gold); flex-shrink: 0;
+  }
+
+  .pricing-cta {
+    width: 100%; border: none; border-radius: 11px; padding: 13px 0;
+    font-size: 13px; font-weight: 700; font-family: 'Lato', sans-serif;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .pricing-cta.free { background: var(--off-black); border: 1px solid var(--border-light); color: var(--muted); }
+  .pricing-cta.pro { background: var(--gold); color: var(--black); }
+  .pricing-cta.pro:hover { box-shadow: 0 6px 24px #f59e0b33; transform: translateY(-1px); }
+
+  /* ── Testimonials ── */
+  .testimonials { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 56px; }
+
+  .testimonial {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px;
+  }
+
+  .testimonial-quote {
+    font-size: 14px; color: #ccc; line-height: 1.7; margin-bottom: 20px;
+    font-style: italic; font-family: 'Playfair Display', serif;
+  }
+
+  .testimonial-author { display: flex; align-items: center; gap: 10px; }
+
+  .testimonial-avatar {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--fire); display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: var(--black); flex-shrink: 0;
+  }
+
+  .testimonial-name { font-size: 13px; font-weight: 700; }
+  .testimonial-handle { font-size: 11px; color: var(--muted); }
+
+  /* ── CTA Section ── */
+  .cta-section {
+    text-align: center; padding: 100px 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  .cta-section .section-title { margin-bottom: 12px; }
+  .cta-section .section-sub { margin: 0 auto 36px; }
+
+  /* ── Footer ── */
+  footer {
+    border-top: 1px solid var(--border); padding: 28px 40px;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 12px;
+  }
+
+  .footer-logo { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 900; color: var(--dim); }
+  .footer-logo span { color: var(--gold); }
+  .footer-note { font-size: 11px; color: #222; }
+
+  /* ── Animations ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .reveal {
+    opacity: 0; transform: translateY(24px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+
+  /* ── Mobile ── */
+  @media (max-width: 600px) {
+    nav { padding: 16px 20px; }
+    .nav-links a { display: none; }
+    section { padding: 72px 20px; }
+    .steps { grid-template-columns: 1fr; }
+    .step { border-radius: 12px !important; }
+    footer { padding: 24px 20px; flex-direction: column; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-logo">content<span>.</span>ai</div>
+  <div class="nav-links">
+    <a href="#how">how it works</a>
+    <a href="#pricing">pricing</a>
+    <a href="#getstarted" class="btn-nav">get started free →</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="glow"></div>
+  <div class="hero-inner">
+    <span class="hero-tag">for faceless content creators</span>
+    <h1 class="hero-headline">
+      stop staring at<br />
+      <em>a blank screen.</em>
+    </h1>
+    <p class="hero-sub">
+      content.ai turns your pillar and a topic into a ready-to-post quote card, caption, and hashtag set — in one click.
+    </p>
+    <div class="hero-ctas">
+      <a href="#getstarted" class="btn-primary">start for free →</a>
+      <a href="#how" class="btn-ghost">see how it works</a>
+    </div>
+    <p class="hero-note">5 free generations · no credit card required</p>
+  </div>
+</section>
+
+<!-- Scrolling pillars -->
+<div class="pillars-strip">
+  <div class="pillars-track">
+    <div class="pillar-item"><div class="pillar-dot" style="background:#f59e0b"></div>money psychology</div>
+    <div class="pillar-item"><div class="pillar-dot" style="background:#3b82f6"></div>ai & productivity</div>
+    <div class="pillar-item"><div class="pillar-dot" style="background:#ef4444"></div>identity & mindset</div>
+    <div class="pillar-item"><div class="pillar-dot" style="background:#f59e0b"></div>tiktok · youtube shorts · facebook</div>
+    <div class="pillar-item"><div class="pillar-dot" style="background:#22c55e"></div>quote cards · captions · hashtags</div>
+    <div class="pillar-item"><div class="pillar-dot" style="background:#f59e0b"></div>money psychology</div>
+    <div class="pillar-item"><div class="pillar-dot" style="background:#3b82f6"></div>ai & productivity</div>
+    <div class="pillar-item"><div class="pillar-dot" style="background:#ef4444"></div>identity & mindset</div>
+    <div class="pillar-item"><div class="pillar-dot" style="background:#f59e0b"></div>tiktok · youtube shorts · facebook</div>
+    <div class="pillar-item"><div class="pillar-dot" style="background:#22c55e"></div>quote cards · captions · hashtags</div>
+  </div>
+</div>
+
+<!-- How it works -->
+<section id="how">
+  <div class="container">
+    <div class="reveal">
+      <span class="section-tag">how it works</span>
+      <h2 class="section-title">three steps.<br />one post. done.</h2>
+      <p class="section-sub">built for creators who post consistently but hate the blank page.</p>
+    </div>
+    <div class="steps reveal">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-title">pick your pillar</div>
+        <div class="step-desc">choose from money psychology, AI & productivity, or identity & mindset — the three pillars built to grow audiences.</div>
+        <div class="step-accent"></div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-title">drop in a topic</div>
+        <div class="step-desc">type a rough angle or leave it blank. the AI finds the hook, the emotion, and the message.</div>
+        <div class="step-accent"></div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-title">copy & post</div>
+        <div class="step-desc">get a visual quote card, a full caption, and a hashtag set — all ready to post. one click to copy each.</div>
+        <div class="step-accent"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Preview -->
+<section style="padding-top: 0;">
+  <div class="container">
+    <div class="preview-wrap">
+      <div class="mock-card reveal">
+        <div class="mock-bar"></div>
+        <div class="mock-body">
+          <div class="mock-tag">money mindset</div>
+          <div class="mock-quote">the goal was never the money. it was the freedom to choose.</div>
+          <div class="mock-sub">most people chase income. the wealthy build options.</div>
+        </div>
+        <div class="mock-wm">content.ai</div>
+      </div>
+      <div class="preview-copy reveal">
+        <span class="section-tag">full post output</span>
+        <h2 class="section-title">quote card.<br />caption.<br />hashtags.</h2>
+        <p class="section-sub" style="margin-bottom:24px;">everything you need to post, in one generation.</p>
+        <div class="output-tabs">
+          <div class="output-tab active">Quote Card</div>
+          <div class="output-tab">Caption</div>
+          <div class="output-tab">Hashtags</div>
+        </div>
+        <div class="output-box">
+          "the goal was never the money.<br />it was the freedom to choose."<br /><br />
+          <span style="color:#555;font-size:12px;font-style:italic;">most people chase income. the wealthy build options.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section>
+  <div class="container">
+    <div class="reveal">
+      <span class="section-tag">what's included</span>
+      <h2 class="section-title">everything a<br />faceless brand needs.</h2>
+    </div>
+    <div class="features-grid reveal">
+      <div class="feature-card">
+        <span class="feature-icon">✦</span>
+        <div class="feature-title">ready-to-post content units</div>
+        <div class="feature-desc">quote card + caption + hashtags generated together. pick a pillar, add a topic, post in 60 seconds.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">◈</span>
+        <div class="feature-title">visual quote cards</div>
+        <div class="feature-desc">dark background, fire gradient bar, left-aligned type. the aesthetic that stops the scroll. download as SVG.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">◎</span>
+        <div class="feature-title">content idea engine</div>
+        <div class="feature-desc">out of ideas? generate 6 content concepts across your pillars with hook lines and formats — in one click.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">◉</span>
+        <div class="feature-title">AI brand chat</div>
+        <div class="feature-desc">talk to an AI that knows your brand voice, your pillars, and your audience. get captions, hooks, and strategy on demand.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">⬡</span>
+        <div class="feature-title">platform-specific output</div>
+        <div class="feature-desc">optimized for TikTok, YouTube Shorts, and Facebook. the same content hits differently on each platform.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">◇</span>
+        <div class="feature-title">one-click copy</div>
+        <div class="feature-desc">caption tab, hashtag tab, card download. no friction between the app and your scheduler.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Testimonials -->
+<section style="padding-top: 0;">
+  <div class="container">
+    <div class="reveal">
+      <span class="section-tag">what creators say</span>
+      <h2 class="section-title">built for creators<br />who are serious.</h2>
+    </div>
+    <div class="testimonials reveal">
+      <div class="testimonial">
+        <div class="testimonial-quote">"I used to spend 2 hours writing captions. now I generate a full post in under a minute. the quality is actually better."</div>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">M</div>
+          <div>
+            <div class="testimonial-name">Marcus T.</div>
+            <div class="testimonial-handle">money mindset creator · 84k followers</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial">
+        <div class="testimonial-quote">"the quote cards look exactly like what performs best on my page. dark, clean, emotional. i didn't have to change anything."</div>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">J</div>
+          <div>
+            <div class="testimonial-name">Jasmine R.</div>
+            <div class="testimonial-handle">faceless motivational brand · tiktok</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial">
+        <div class="testimonial-quote">"it knows my three pillars and stays consistent. every caption sounds like my brand. this is the tool i was looking for."</div>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">D</div>
+          <div>
+            <div class="testimonial-name">Devon K.</div>
+            <div class="testimonial-handle">ai & productivity creator · youtube</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section id="pricing">
+  <div class="container" style="text-align:center;">
+    <div class="reveal">
+      <span class="section-tag">pricing</span>
+      <h2 class="section-title">start free.<br />scale when ready.</h2>
+      <p class="section-sub" style="margin: 0 auto;">no contracts. cancel anytime. your first 5 posts are on us.</p>
+    </div>
+    <div class="pricing-grid reveal">
+      <div class="pricing-card">
+        <div class="pricing-tier">free</div>
+        <div class="pricing-price">$0</div>
+        <div class="pricing-period">forever</div>
+        <ul class="pricing-features">
+          <li><div class="check">✓</div>5 content generations</li>
+          <li><div class="check">✓</div>All 3 pillars</li>
+          <li><div class="check">✓</div>Quote card + caption + hashtags</li>
+          <li><div class="check">✓</div>No credit card needed</li>
+        </ul>
+        <button class="pricing-cta free">start free →</button>
+      </div>
+      <div class="pricing-card featured">
+        <div class="pricing-badge">most popular</div>
+        <div class="pricing-tier">pro</div>
+        <div class="pricing-price">$19</div>
+        <div class="pricing-period">/month · cancel anytime</div>
+        <ul class="pricing-features">
+          <li><div class="check">✓</div>Unlimited generations</li>
+          <li><div class="check">✓</div>Visual quote card download</li>
+          <li><div class="check">✓</div>Caption + hashtag bundles</li>
+          <li><div class="check">✓</div>Content idea engine</li>
+          <li><div class="check">✓</div>AI brand chat assistant</li>
+          <li><div class="check">✓</div>All platforms included</li>
+        </ul>
+        <button class="pricing-cta pro">upgrade to pro →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="getstarted" class="cta-section">
+  <span class="section-tag reveal">get started</span>
+  <h2 class="section-title reveal">your next post is<br /><span style="color:var(--gold);font-style:italic;">already waiting.</span></h2>
+  <p class="section-sub reveal">join creators building faceless brands on autopilot.</p>
+  <a href="#" class="btn-primary reveal">create your first post free →</a>
+  <p class="hero-note reveal" style="margin-top:16px;">5 free generations · no card required · cancel anytime</p>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="fire-bar"></div>
+  <div class="footer-logo">content<span>.</span>ai</div>
+  <div class="footer-note">money psychology · ai & productivity · identity & mindset</div>
+</footer>
+
+<script>
+  // Scroll reveal
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) {
+        setTimeout(() => e.target.classList.add('visible'), i * 80);
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  reveals.forEach(el => observer.observe(el));
+</script>
+</body>
+</html>

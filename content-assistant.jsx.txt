@@ -1,0 +1,625 @@
+import { useState, useRef, useEffect } from "react";
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+const FREE_LIMIT = 5;
+const PRICE_MONTHLY = 19;
+const PRICE_YEARLY = 129;
+
+// In production: import { createClient } from "@supabase/supabase-js"
+// const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+// This demo simulates Supabase auth behavior
+
+const SYSTEM_PROMPT = `You are a content assistant for a faceless social media brand. Three pillars: Money Psychology, AI & Productivity, Identity & Mindset.
+
+VOICE: minimalist, lowercase, punchy. Short sentences. Emotionally direct. No fluff.
+
+When asked for ready-to-post content, ALWAYS return valid JSON only (no markdown, no backticks):
+{
+  "quote": "main quote text (1-2 lines, lowercase)",
+  "subtext": "supporting line below quote (short, italic feel)",
+  "tag": "PILLAR TAG (2-3 words uppercase)",
+  "caption": "hook line\\n\\nbody (2-3 punchy lines)\\n\\nCTA",
+  "hashtags": "#tag1 #tag2 #tag3 #tag4 #tag5 #tag6 #tag7 #tag8"
+}
+
+Make every output scroll-stopping and emotionally resonant. Never generic.`;
+
+const PILLARS = [
+  { id: "money", label: "Money Psychology", color: "#f59e0b", icon: "◈", tag: "MONEY MINDSET" },
+  { id: "ai", label: "AI & Productivity", color: "#3b82f6", icon: "◎", tag: "AI & LEVERAGE" },
+  { id: "mindset", label: "Identity & Mindset", color: "#ef4444", icon: "◉", tag: "MINDSET SHIFT" },
+];
+
+const PLATFORMS = [
+  { id: "tiktok", label: "TikTok" },
+  { id: "youtube", label: "YouTube Shorts" },
+  { id: "facebook", label: "Facebook" },
+];
+
+const PRO_FEATURES = [
+  "Unlimited ready-to-post content units",
+  "Visual quote card with download",
+  "Caption + hashtag bundles",
+  "All 3 content pillars",
+  "AI chat assistant",
+  "Content idea engine",
+];
+
+// ─── Mock Supabase (replace with real client in production) ───────────────────
+const mockUsers = {
+  "pro@test.com": { email: "pro@test.com", is_pro: true, name: "Pro User" },
+  "free@test.com": { email: "free@test.com", is_pro: false, name: "Free User" },
+};
+
+const fakeSupabase = {
+  auth: {
+    signInWithPassword: async ({ email, password }) => {
+      await new Promise((r) => setTimeout(r, 900));
+      const user = mockUsers[email.toLowerCase()];
+      if (!user || password.length < 3) return { data: null, error: { message: "invalid email or password" } };
+      return { data: { user: { email: user.email, id: "uid_" + email } }, error: null };
+    },
+    signUp: async ({ email, password }) => {
+      await new Promise((r) => setTimeout(r, 900));
+      if (password.length < 6) return { data: null, error: { message: "password must be at least 6 characters" } };
+      return { data: { user: { email, id: "uid_" + email } }, error: null };
+    },
+    signOut: async () => ({ error: null }),
+  },
+  from: (table) => ({
+    select: (cols) => ({
+      eq: (col, val) => ({
+        single: async () => {
+          await new Promise((r) => setTimeout(r, 400));
+          const user = mockUsers[val?.toLowerCase()];
+          return user ? { data: user, error: null } : { data: { email: val, is_pro: false }, error: null };
+        },
+      }),
+    }),
+  }),
+};
+
+// ─── API ──────────────────────────────────────────────────────────────────────
+async function callClaude(messages, system = SYSTEM_PROMPT) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system, messages }),
+  });
+  const data = await res.json();
+  return data.content?.map((b) => b.text || "").join("") || "";
+}
+
+// ─── Auth Screen ──────────────────────────────────────────────────────────────
+function AuthScreen({ onLogin }) {
+  const [mode, setMode] = useState("signin"); // signin | signup
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const submit = async () => {
+    if (!email.trim() || !password.trim()) { setError("please fill in both fields"); return; }
+    setLoading(true); setError(""); setSuccess("");
+
+    if (mode === "signin") {
+      const { data, error: err } = await fakeSupabase.auth.signInWithPassword({ email, password });
+      if (err) { setError(err.message); setLoading(false); return; }
+      // Fetch Pro status from users table
+      const { data: profile } = await fakeSupabase.from("users").select("is_pro").eq("email", email).single();
+      onLogin({ email: data.user.email, isPro: profile?.is_pro || false });
+    } else {
+      const { data, error: err } = await fakeSupabase.auth.signUp({ email, password });
+      if (err) { setError(err.message); setLoading(false); return; }
+      setSuccess("account created! check your email to confirm, then sign in.");
+      setMode("signin"); setPassword("");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#0d0d0d", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: "100%", maxWidth: 380, animation: "fadeUp 0.4s ease" }}>
+
+        {/* Brand */}
+        <div style={{ textAlign: "center", marginBottom: 36 }}>
+          <div style={{ height: 3, background: "linear-gradient(90deg,#ef4444,#f59e0b,#fde047)", borderRadius: 2, marginBottom: 24 }} />
+          <h1 style={{ fontFamily: "'Playfair Display',serif", fontSize: 32, color: "#fff", fontWeight: 900, letterSpacing: -1 }}>
+            content<span style={{ color: "#f59e0b" }}>.</span>ai
+          </h1>
+          <p style={{ fontFamily: "'Lato',sans-serif", fontSize: 13, color: "#3a3a3a", marginTop: 6 }}>
+            your brand voice, amplified
+          </p>
+        </div>
+
+        {/* Card */}
+        <div style={{ background: "#0f0f0f", border: "1px solid #1a1a1a", borderRadius: 20, padding: 28 }}>
+
+          {/* Mode toggle */}
+          <div style={{ display: "flex", background: "#111", borderRadius: 10, padding: 3, border: "1px solid #1a1a1a", marginBottom: 24 }}>
+            {["signin", "signup"].map((m) => (
+              <button key={m} onClick={() => { setMode(m); setError(""); setSuccess(""); }} style={{
+                flex: 1, background: mode === m ? "#1e1e1e" : "transparent",
+                border: "none", borderRadius: 7, padding: "9px 0",
+                color: mode === m ? "#f59e0b" : "#3a3a3a",
+                fontSize: 13, cursor: "pointer", fontFamily: "'Lato',sans-serif",
+                fontWeight: mode === m ? 700 : 400, transition: "all 0.2s",
+              }}>
+                {m === "signin" ? "sign in" : "create account"}
+              </button>
+            ))}
+          </div>
+
+          {/* Fields */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+            <div>
+              <label style={L}>email</label>
+              <input
+                type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submit()}
+                placeholder="you@email.com"
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={L}>password</label>
+              <input
+                type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submit()}
+                placeholder="••••••••"
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          {error && (
+            <div style={{ background: "#ef444422", border: "1px solid #ef444433", borderRadius: 8, padding: "10px 14px", marginBottom: 16 }}>
+              <p style={{ fontSize: 12, color: "#ef4444", fontFamily: "'Lato',sans-serif" }}>{error}</p>
+            </div>
+          )}
+
+          {success && (
+            <div style={{ background: "#22c55e22", border: "1px solid #22c55e33", borderRadius: 8, padding: "10px 14px", marginBottom: 16 }}>
+              <p style={{ fontSize: 12, color: "#22c55e", fontFamily: "'Lato',sans-serif" }}>{success}</p>
+            </div>
+          )}
+
+          <button onClick={submit} disabled={loading} style={{
+            width: "100%", background: loading ? "#1a1a1a" : "#f59e0b",
+            border: "none", borderRadius: 12, padding: "14px 0",
+            color: loading ? "#555" : "#0d0d0d", fontSize: 14, fontWeight: 700,
+            fontFamily: "'Lato',sans-serif", cursor: loading ? "default" : "pointer",
+            transition: "all 0.2s", letterSpacing: 0.3,
+          }}>
+            {loading ? "please wait..." : mode === "signin" ? "sign in →" : "create account →"}
+          </button>
+
+          {mode === "signin" && (
+            <p style={{ textAlign: "center", marginTop: 14, fontSize: 11, color: "#333", fontFamily: "'Lato',sans-serif", cursor: "pointer" }}>
+              forgot password? <span style={{ color: "#f59e0b" }}>reset it</span>
+            </p>
+          )}
+        </div>
+
+        {/* Demo hint */}
+        <div style={{ marginTop: 16, background: "#111", border: "1px solid #1a1a1a", borderRadius: 12, padding: "12px 16px" }}>
+          <p style={{ fontSize: 11, color: "#333", fontFamily: "'Lato',sans-serif", marginBottom: 6 }}>demo accounts:</p>
+          <p style={{ fontSize: 11, color: "#555", fontFamily: "'Lato',sans-serif" }}>pro@test.com / anypassword → <span style={{ color: "#f59e0b" }}>Pro</span></p>
+          <p style={{ fontSize: 11, color: "#555", fontFamily: "'Lato',sans-serif" }}>free@test.com / anypassword → <span style={{ color: "#666" }}>Free</span></p>
+        </div>
+
+        <p style={{ textAlign: "center", marginTop: 20, fontSize: 10, color: "#1a1a1a", fontFamily: "'Lato',sans-serif" }}>
+          money psychology · ai & productivity · identity & mindset
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Quote Card ───────────────────────────────────────────────────────────────
+function QuoteCard({ quote, subtext, tag, onDownload, downloading }) {
+  return (
+    <div style={{ position: "relative" }}>
+      <div id="quote-card" style={{ background: "#0d0d0d", borderRadius: 14, overflow: "hidden", aspectRatio: "1/1", display: "flex", flexDirection: "column" }}>
+        <div style={{ height: 5, background: "linear-gradient(90deg,#ef4444,#f59e0b,#fde047)", flexShrink: 0 }} />
+        <div style={{ flex: 1, padding: "24px 24px 16px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 9, color: "#f59e0b", fontFamily: "'Lato',sans-serif", textTransform: "uppercase", letterSpacing: 2.5, fontWeight: 700 }}>{tag}</span>
+          <p style={{ fontSize: 20, color: "#fff", fontWeight: 900, lineHeight: 1.35, fontFamily: "'Playfair Display',serif", margin: "16px 0" }}>{quote}</p>
+          <div style={{ borderLeft: "2px solid #2a2a2a", paddingLeft: 12 }}>
+            <p style={{ fontSize: 11, color: "#555", fontFamily: "'Lato',sans-serif", fontWeight: 300, lineHeight: 1.5, fontStyle: "italic", margin: 0 }}>{subtext}</p>
+          </div>
+        </div>
+        <div style={{ padding: "0 24px 14px", display: "flex", justifyContent: "flex-end" }}>
+          <span style={{ fontSize: 9, color: "#1e1e1e", fontFamily: "'Lato',sans-serif", letterSpacing: 1 }}>content.ai</span>
+        </div>
+      </div>
+      <button onClick={onDownload} disabled={downloading} style={{ position: "absolute", bottom: 10, left: 10, background: "rgba(13,13,13,0.92)", border: "1px solid #2a2a2a", borderRadius: 7, padding: "5px 11px", color: "#666", fontSize: 10, cursor: "pointer", fontFamily: "'Lato',sans-serif" }}>
+        {downloading ? "saving..." : "⬇ save card"}
+      </button>
+    </div>
+  );
+}
+
+// ─── Post Unit (tabbed output) ────────────────────────────────────────────────
+function PostUnit({ data, onNew }) {
+  const [tab, setTab] = useState("card");
+  const [downloading, setDownloading] = useState(false);
+  const [copiedCap, setCopiedCap] = useState(false);
+  const [copiedHash, setCopiedHash] = useState(false);
+
+  const copy = (text, setter) => { navigator.clipboard.writeText(text); setter(true); setTimeout(() => setter(false), 2000); };
+
+  const download = async () => {
+    setDownloading(true);
+    const card = document.getElementById("quote-card");
+    const w = card.offsetWidth, h = card.offsetHeight;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" style="width:${w}px;height:${h}px;background:#0d0d0d;overflow:hidden;"><div style="height:5px;background:linear-gradient(90deg,#ef4444,#f59e0b,#fde047)"></div><div style="padding:24px;font-family:serif;"><div style="font-size:9px;color:#f59e0b;letter-spacing:2.5px;text-transform:uppercase;font-family:sans-serif;font-weight:700;margin-bottom:16px;">${data.tag}</div><p style="font-size:20px;color:#fff;font-weight:900;line-height:1.35;margin:0 0 16px;">${data.quote}</p><div style="border-left:2px solid #2a2a2a;padding-left:12px;"><p style="font-size:11px;color:#555;font-family:sans-serif;font-style:italic;margin:0;">${data.subtext}</p></div></div></div></foreignObject></svg>`;
+    const blob = new Blob([svg], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "quote-card.svg"; a.click();
+    URL.revokeObjectURL(url);
+    setDownloading(false);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, animation: "fadeUp 0.3s ease" }}>
+      <div style={{ display: "flex", gap: 2, background: "#111", borderRadius: 9, padding: 3, border: "1px solid #1a1a1a" }}>
+        {[{ id: "card", label: "Quote Card" }, { id: "caption", label: "Caption" }, { id: "hashtags", label: "Hashtags" }].map((t) => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{ flex: 1, background: tab === t.id ? "#1e1e1e" : "transparent", border: "none", borderRadius: 6, padding: "7px 0", color: tab === t.id ? "#f59e0b" : "#3a3a3a", fontSize: 11, cursor: "pointer", fontFamily: "'Lato',sans-serif", fontWeight: tab === t.id ? 700 : 400, transition: "all 0.2s" }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "card" && <QuoteCard quote={data.quote} subtext={data.subtext} tag={data.tag} onDownload={download} downloading={downloading} />}
+
+      {tab === "caption" && (
+        <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 14, padding: 18 }}>
+          <p style={L}>ready-to-post caption</p>
+          <p style={{ color: "#e5e5e5", fontSize: 14, lineHeight: 1.85, fontFamily: "'Lato',sans-serif", whiteSpace: "pre-wrap", margin: "0 0 14px" }}>{data.caption}</p>
+          <button onClick={() => copy(data.caption, setCopiedCap)} style={copyBtn(copiedCap)}>{copiedCap ? "✓ copied" : "copy caption"}</button>
+        </div>
+      )}
+
+      {tab === "hashtags" && (
+        <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 14, padding: 18 }}>
+          <p style={L}>hashtag set</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 14 }}>
+            {data.hashtags.split(" ").filter(Boolean).map((h, i) => (
+              <span key={i} style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 6, padding: "4px 10px", color: "#f59e0b", fontSize: 11, fontFamily: "'Lato',sans-serif" }}>{h}</span>
+            ))}
+          </div>
+          <button onClick={() => copy(data.hashtags, setCopiedHash)} style={copyBtn(copiedHash)}>{copiedHash ? "✓ copied" : "copy all hashtags"}</button>
+        </div>
+      )}
+
+      <button onClick={onNew} style={{ background: "transparent", border: "1px solid #1e1e1e", borderRadius: 10, padding: "11px 0", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "'Lato',sans-serif", transition: "all 0.2s" }}>
+        ↻ generate another
+      </button>
+    </div>
+  );
+}
+
+// ─── Generate Mode ────────────────────────────────────────────────────────────
+function GenerateMode({ onUse, usageBlocked }) {
+  const [pillar, setPillar] = useState("mindset");
+  const [platform, setPlatform] = useState("tiktok");
+  const [topic, setTopic] = useState("");
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const generate = async () => {
+    if (loading || usageBlocked) { if (usageBlocked) onUse(); return; }
+    setLoading(true); setResult(null); setError(""); onUse();
+    const p = PILLARS.find((x) => x.id === pillar);
+    const pl = PLATFORMS.find((x) => x.id === platform);
+    const prompt = `Create a ready-to-post content unit for the "${p.label}" pillar on ${pl.label}.${topic ? ` Angle/topic: ${topic}` : ""}\n\nReturn ONLY the JSON object. No markdown.`;
+    try {
+      const raw = await callClaude([{ role: "user", content: prompt }]);
+      const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      if (!parsed.quote) throw new Error();
+      setResult({ ...parsed, tag: parsed.tag || p.tag });
+    } catch { setError("couldn't parse response — try again."); }
+    setLoading(false);
+  };
+
+  if (result) return <PostUnit data={result} onNew={() => setResult(null)} />;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <div>
+        <label style={L}>content pillar</label>
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+          {PILLARS.map((p) => <button key={p.id} onClick={() => setPillar(p.id)} style={chip(pillar === p.id, p.color)}>{p.icon} {p.label}</button>)}
+        </div>
+      </div>
+      <div>
+        <label style={L}>platform</label>
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+          {PLATFORMS.map((p) => <button key={p.id} onClick={() => setPlatform(p.id)} style={chip(platform === p.id, "#f59e0b")}>{p.label}</button>)}
+        </div>
+      </div>
+      <div>
+        <label style={L}>topic or angle (optional)</label>
+        <input value={topic} onChange={(e) => setTopic(e.target.value)} onKeyDown={(e) => e.key === "Enter" && generate()}
+          placeholder="e.g. why broke people stay broke..."
+          style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+      </div>
+      {error && <p style={{ fontSize: 12, color: "#ef4444", fontFamily: "'Lato',sans-serif" }}>{error}</p>}
+      <button onClick={generate} disabled={loading} style={genBtn(loading, usageBlocked)}>
+        {usageBlocked ? "🔒 upgrade to generate" : loading ? "building your post..." : "✦ create ready-to-post content"}
+      </button>
+      {loading && <p style={{ textAlign: "center", fontSize: 11, color: "#2a2a2a", fontFamily: "'Lato',sans-serif" }}>generating quote · caption · hashtags</p>}
+    </div>
+  );
+}
+
+// ─── Ideas Mode ───────────────────────────────────────────────────────────────
+function IdeasMode({ onUse, usageBlocked }) {
+  const [pillar, setPillar] = useState("all");
+  const [ideas, setIdeas] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const pc = (n = "") => n.toLowerCase().includes("money") ? "#f59e0b" : n.toLowerCase().includes("ai") || n.toLowerCase().includes("prod") ? "#3b82f6" : "#ef4444";
+
+  const generate = async () => {
+    if (usageBlocked) { onUse(); return; }
+    setLoading(true); setIdeas([]); onUse();
+    const ctx = pillar === "all" ? "across all three pillars (Money Psychology, AI & Productivity, Identity & Mindset)" : `for the "${PILLARS.find((p) => p.id === pillar)?.label}" pillar`;
+    const prompt = `Generate 6 content ideas ${ctx} for short-form social media.\n\nReturn ONLY valid JSON:\n{"ideas":[{"pillar":"pillar name","angle":"specific angle","hook":"scroll-stopping hook line","format":"Quote Card or Caption or Script"}]}`;
+    try {
+      const raw = await callClaude([{ role: "user", content: prompt }]);
+      const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      setIdeas(parsed.ideas || []);
+    } catch { setIdeas([{ pillar: "Error", angle: "Try again", hook: "could not parse response", format: "" }]); }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <div>
+        <label style={L}>filter by pillar</label>
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+          <button onClick={() => setPillar("all")} style={chip(pillar === "all", "#f59e0b")}>All Pillars</button>
+          {PILLARS.map((p) => <button key={p.id} onClick={() => setPillar(p.id)} style={chip(pillar === p.id, p.color)}>{p.label}</button>)}
+        </div>
+      </div>
+      <button onClick={generate} disabled={loading} style={genBtn(loading, usageBlocked)}>
+        {usageBlocked ? "🔒 upgrade to generate" : loading ? "generating ideas..." : "generate 6 ideas"}
+      </button>
+      {ideas.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {ideas.map((idea, i) => (
+            <div key={i} style={{ background: "#111", border: "1px solid #1a1a1a", borderRadius: 11, padding: 14, borderLeft: `3px solid ${pc(idea.pillar)}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}>
+                <span style={{ fontSize: 10, color: pc(idea.pillar), fontFamily: "'Lato',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{idea.pillar}</span>
+                <span style={{ fontSize: 10, color: "#3a3a3a", fontFamily: "'Lato',sans-serif", background: "#1a1a1a", padding: "2px 8px", borderRadius: 5 }}>{idea.format}</span>
+              </div>
+              <p style={{ margin: "0 0 5px", color: "#fff", fontSize: 13, fontFamily: "'Playfair Display',serif", lineHeight: 1.4 }}>{idea.hook}</p>
+              <p style={{ margin: 0, color: "#555", fontSize: 11, fontFamily: "'Lato',sans-serif" }}>{idea.angle}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Chat Mode ────────────────────────────────────────────────────────────────
+function ChatMode({ onUse, usageBlocked }) {
+  const [messages, setMessages] = useState([{ role: "assistant", content: "what do you want to create today?" }]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef(null);
+  const chatSystem = `You are a content assistant for a faceless social media brand. Pillars: Money Psychology, AI & Productivity, Identity & Mindset. Voice: minimalist, lowercase, punchy. Help with content ideas, captions, hooks, strategy.`;
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+
+  const send = async () => {
+    if (!input.trim() || loading) return;
+    if (usageBlocked) { onUse(); return; }
+    const userMsg = { role: "user", content: input.trim() };
+    const next = [...messages, userMsg];
+    setMessages(next); setInput(""); setLoading(true); onUse();
+    try {
+      const reply = await callClaude(next.map((m) => ({ role: m.role, content: m.content })), chatSystem);
+      setMessages([...next, { role: "assistant", content: reply }]);
+    } catch { setMessages([...next, { role: "assistant", content: "something went wrong. try again." }]); }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "12px 0", display: "flex", flexDirection: "column", gap: 12 }}>
+        {messages.map((m, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+            <div style={{ maxWidth: "80%", padding: "10px 14px", borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "4px 16px 16px 16px", background: m.role === "user" ? "#f59e0b" : "#1a1a1a", color: m.role === "user" ? "#0d0d0d" : "#e5e5e5", fontSize: 13, lineHeight: 1.65, fontFamily: "'Lato',sans-serif", border: m.role === "assistant" ? "1px solid #2a2a2a" : "none", whiteSpace: "pre-wrap" }}>
+              {m.content}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div style={{ display: "flex" }}>
+            <div style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: "4px 16px 16px 16px", padding: "8px 14px", display: "flex", gap: 4 }}>
+              {[0,1,2].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: "#f59e0b", animation: "blink 1.2s ease-in-out infinite", animationDelay: `${i*0.2}s` }} />)}
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+      <div style={{ display: "flex", gap: 7, paddingTop: 12, borderTop: "1px solid #1a1a1a" }}>
+        <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
+          placeholder={usageBlocked ? "upgrade to keep chatting..." : "ask anything..."} disabled={usageBlocked}
+          style={{ flex: 1, background: usageBlocked ? "#0a0a0a" : "#111", border: `1px solid ${usageBlocked ? "#111" : "#2a2a2a"}`, borderRadius: 11, padding: "11px 14px", color: usageBlocked ? "#222" : "#e5e5e5", fontSize: 13, fontFamily: "'Lato',sans-serif", outline: "none" }} />
+        <button onClick={send} disabled={loading || !input.trim() || usageBlocked} style={{ background: input.trim() && !usageBlocked ? "#f59e0b" : "#1a1a1a", border: "none", borderRadius: 11, width: 44, height: 44, cursor: input.trim() && !usageBlocked ? "pointer" : "default", color: input.trim() && !usageBlocked ? "#0d0d0d" : "#333", fontSize: 17, transition: "all 0.2s" }}>↑</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Paywall ──────────────────────────────────────────────────────────────────
+function PaywallModal({ onClose, onUpgrade }) {
+  const [billing, setBilling] = useState("monthly");
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.93)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20, backdropFilter: "blur(8px)" }}>
+      <div style={{ background: "#0f0f0f", border: "1px solid #2a2a2a", borderRadius: 22, width: "100%", maxWidth: 390, padding: 28, position: "relative", animation: "fadeUp 0.3s ease" }}>
+        <button onClick={onClose} style={{ position: "absolute", top: 14, right: 14, background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 7, width: 28, height: 28, color: "#555", cursor: "pointer", fontSize: 14 }}>×</button>
+        <div style={{ height: 3, background: "linear-gradient(90deg,#ef4444,#f59e0b,#fde047)", borderRadius: 2, marginBottom: 20 }} />
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <p style={{ fontSize: 10, color: "#f59e0b", fontFamily: "'Lato',sans-serif", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>free limit reached</p>
+          <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 20, color: "#fff", fontWeight: 900, lineHeight: 1.25, marginBottom: 8 }}>you've seen what it can do.<br /><span style={{ color: "#f59e0b" }}>now own it.</span></h2>
+          <p style={{ fontSize: 12, color: "#555", fontFamily: "'Lato',sans-serif", lineHeight: 1.6 }}>unlimited posts, visual cards, captions and hashtags — all in one click.</p>
+        </div>
+        <div style={{ marginBottom: 18, display: "flex", flexDirection: "column", gap: 8 }}>
+          {PRO_FEATURES.map((f, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 16, height: 16, borderRadius: "50%", background: "#f59e0b22", border: "1px solid #f59e0b44", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <span style={{ fontSize: 8, color: "#f59e0b" }}>✓</span>
+              </div>
+              <span style={{ fontSize: 12, color: "#aaa", fontFamily: "'Lato',sans-serif" }}>{f}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", background: "#111", border: "1px solid #1a1a1a", borderRadius: 9, padding: 3, marginBottom: 12 }}>
+          {["monthly", "yearly"].map((b) => (
+            <button key={b} onClick={() => setBilling(b)} style={{ flex: 1, background: billing === b ? "#1e1e1e" : "transparent", border: "none", borderRadius: 6, padding: "8px 0", color: billing === b ? "#fff" : "#3a3a3a", fontSize: 12, cursor: "pointer", fontFamily: "'Lato',sans-serif", transition: "all 0.2s" }}>
+              {b} {b === "yearly" && <span style={{ fontSize: 10, color: "#22c55e" }}>save 43%</span>}
+            </button>
+          ))}
+        </div>
+        <div style={{ textAlign: "center", marginBottom: 14 }}>
+          <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 34, color: "#fff", fontWeight: 900 }}>${billing === "monthly" ? PRICE_MONTHLY : Math.round(PRICE_YEARLY / 12)}</span>
+          <span style={{ fontSize: 12, color: "#555", fontFamily: "'Lato',sans-serif" }}>/month{billing === "yearly" ? ` · $${PRICE_YEARLY}/yr` : ""}</span>
+        </div>
+        <button onClick={onUpgrade} style={{ width: "100%", background: "#f59e0b", border: "none", borderRadius: 12, padding: "13px 0", color: "#0d0d0d", fontSize: 14, fontWeight: 700, fontFamily: "'Lato',sans-serif", cursor: "pointer" }}>
+          upgrade to pro →
+        </button>
+        <p style={{ textAlign: "center", marginTop: 10, fontSize: 10, color: "#2a2a2a", fontFamily: "'Lato',sans-serif" }}>cancel anytime · no contracts</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Shared Styles ────────────────────────────────────────────────────────────
+const L = { display: "block", fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8, fontFamily: "'Lato',sans-serif" };
+const inputStyle = { background: "#111", border: "1px solid #2a2a2a", borderRadius: 10, padding: "11px 14px", color: "#e5e5e5", fontSize: 13, fontFamily: "'Lato',sans-serif", outline: "none", width: "100%" };
+const chip = (active, color) => ({ background: active ? color + "22" : "#111", border: `1px solid ${active ? color : "#2a2a2a"}`, borderRadius: 8, padding: "7px 12px", cursor: "pointer", color: active ? color : "#555", fontSize: 12, fontFamily: "'Lato',sans-serif", transition: "all 0.2s" });
+const genBtn = (loading, blocked) => ({ background: blocked ? "#111" : loading ? "#1a1a1a" : "#f59e0b", border: blocked ? "1px solid #2a2a2a" : "none", borderRadius: 12, padding: "13px 20px", color: blocked ? "#555" : loading ? "#555" : "#0d0d0d", fontSize: 13, fontWeight: 700, fontFamily: "'Lato',sans-serif", cursor: loading ? "default" : "pointer", transition: "all 0.2s" });
+const copyBtn = (copied) => ({ background: copied ? "#22c55e" : "#1e1e1e", border: "1px solid #2a2a2a", borderRadius: 7, padding: "7px 14px", color: copied ? "#fff" : "#777", fontSize: 11, cursor: "pointer", fontFamily: "'Lato',sans-serif", transition: "all 0.2s" });
+
+const MODES = [{ id: "generate", label: "Create Post" }, { id: "ideas", label: "Ideas" }, { id: "chat", label: "Chat" }];
+
+// ─── Main App ─────────────────────────────────────────────────────────────────
+export default function App() {
+  const [user, setUser] = useState(null); // { email, isPro }
+  const [mode, setMode] = useState("generate");
+  const [usage, setUsage] = useState(0);
+  const [showPaywall, setShowPaywall] = useState(false);
+
+  const isPro = user?.isPro || false;
+  const usageBlocked = !isPro && usage >= FREE_LIMIT;
+  const remaining = Math.max(FREE_LIMIT - usage, 0);
+  const barPct = Math.min((usage / FREE_LIMIT) * 100, 100);
+  const barColor = usage >= FREE_LIMIT ? "#ef4444" : usage >= FREE_LIMIT - 1 ? "#f59e0b" : "#22c55e";
+
+  const handleUse = () => {
+    if (isPro) return;
+    if (usage >= FREE_LIMIT) { setShowPaywall(true); return; }
+    setUsage((u) => { const next = u + 1; if (next >= FREE_LIMIT) setTimeout(() => setShowPaywall(true), 800); return next; });
+  };
+
+  const handleLogout = async () => {
+    await fakeSupabase.auth.signOut();
+    setUser(null); setUsage(0); setMode("generate");
+  };
+
+  // ── Not logged in → show auth screen
+  if (!user) return (
+    <>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Lato:wght@300;400;700&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{background:#0d0d0d}@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      <AuthScreen onLogin={setUser} />
+    </>
+  );
+
+  // ── Logged in → show app
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Lato:wght@300;400;700&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0}body{background:#0d0d0d}
+        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#222;border-radius:4px}
+        @keyframes blink{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        .app{animation:fadeUp 0.3s ease}
+      `}</style>
+
+      {showPaywall && <PaywallModal onClose={() => setShowPaywall(false)} onUpgrade={() => { setUser({ ...user, isPro: true }); setShowPaywall(false); }} />}
+
+      <div className="app" style={{ minHeight: "100vh", background: "#0d0d0d", display: "flex", justifyContent: "center", padding: "22px 16px" }}>
+        <div style={{ width: "100%", maxWidth: 520 }}>
+
+          {/* Header */}
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ height: 3, background: "linear-gradient(90deg,#ef4444,#f59e0b,#fde047)", borderRadius: 2, marginBottom: 14 }} />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h1 style={{ fontFamily: "'Playfair Display',serif", fontSize: 20, color: "#fff", fontWeight: 900 }}>content<span style={{ color: "#f59e0b" }}>.</span>ai</h1>
+                <p style={{ fontSize: 10, color: "#2a2a2a", fontFamily: "'Lato',sans-serif", marginTop: 2 }}>
+                  {user.email}
+                  {isPro && <span style={{ marginLeft: 6, color: "#f59e0b" }}>· PRO</span>}
+                </p>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {!isPro && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                    <div style={{ width: 46, height: 3, background: "#1a1a1a", borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{ width: `${barPct}%`, height: "100%", background: barColor, borderRadius: 2, transition: "width 0.4s" }} />
+                    </div>
+                    <span style={{ fontSize: 10, color: usage >= FREE_LIMIT ? "#ef4444" : "#3a3a3a", fontFamily: "'Lato',sans-serif" }}>
+                      {usage >= FREE_LIMIT ? "limit reached" : `${remaining} left`}
+                    </span>
+                    <button onClick={() => setShowPaywall(true)} style={{ background: "#f59e0b22", border: "1px solid #f59e0b33", borderRadius: 6, padding: "4px 9px", color: "#f59e0b", fontSize: 10, cursor: "pointer", fontFamily: "'Lato',sans-serif", fontWeight: 700 }}>PRO ↗</button>
+                  </div>
+                )}
+                <button onClick={handleLogout} style={{ background: "transparent", border: "1px solid #1a1a1a", borderRadius: 6, padding: "5px 10px", color: "#333", fontSize: 10, cursor: "pointer", fontFamily: "'Lato',sans-serif" }}>sign out</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div style={{ display: "flex", gap: 2, background: "#111", borderRadius: 10, padding: 3, border: "1px solid #1a1a1a", marginBottom: 12 }}>
+            {MODES.map((m) => (
+              <button key={m.id} onClick={() => setMode(m.id)} style={{ flex: 1, background: mode === m.id ? "#1e1e1e" : "transparent", border: "none", borderRadius: 7, padding: "8px 0", color: mode === m.id ? "#f59e0b" : "#3a3a3a", fontSize: 12, cursor: "pointer", fontFamily: "'Lato',sans-serif", fontWeight: mode === m.id ? 700 : 400, transition: "all 0.2s" }}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Panel */}
+          <div style={{ background: "#0f0f0f", border: "1px solid #1a1a1a", borderRadius: 18, padding: 20, minHeight: mode === "chat" ? 440 : "auto", display: mode === "chat" ? "flex" : "block", flexDirection: "column" }}>
+            {mode === "generate" && <GenerateMode onUse={handleUse} usageBlocked={usageBlocked} />}
+            {mode === "ideas" && <IdeasMode onUse={handleUse} usageBlocked={usageBlocked} />}
+            {mode === "chat" && <ChatMode onUse={handleUse} usageBlocked={usageBlocked} />}
+          </div>
+
+          {/* Near-limit banner */}
+          {!isPro && usage >= FREE_LIMIT - 1 && !showPaywall && (
+            <div onClick={() => setShowPaywall(true)} style={{ marginTop: 10, background: "#111", border: "1px solid #f59e0b22", borderRadius: 11, padding: "12px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", animation: "fadeUp 0.3s ease" }}>
+              <div>
+                <p style={{ fontSize: 12, color: "#f59e0b", fontFamily: "'Lato',sans-serif", fontWeight: 700 }}>{usage >= FREE_LIMIT ? "free limit reached" : "1 free generation left"}</p>
+                <p style={{ fontSize: 10, color: "#333", fontFamily: "'Lato',sans-serif", marginTop: 2 }}>upgrade for unlimited posts</p>
+              </div>
+              <span style={{ color: "#f59e0b" }}>→</span>
+            </div>
+          )}
+
+          <p style={{ textAlign: "center", marginTop: 14, fontSize: 10, color: "#161616", fontFamily: "'Lato',sans-serif" }}>
+            money psychology · ai & productivity · identity & mindset
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}
